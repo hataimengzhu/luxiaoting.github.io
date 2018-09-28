@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zn">
+<head>
+    <meta charset="UTF-8">
+    <title>2048</title>
+    <link rel="stylesheet" href="css/css.css">
+    <style>
+        *{
+            margin: 0;
+            padding: 0;
+        }
+        header{
+            display: block;
+            width: 200px;
+            height: 100px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        header h1{
+            font-family: Arial;
+            font-size: 40px;
+            font-weight: bold;
+        }
+        header #score{
+            font-family: Arial;
+            font-size: 25px;
+        }
+        header time{
+            display: block;
+        }
+        header #ng{
+            display: block;
+            text-decoration: none;
+            width: 100px;
+            margin: 0 auto;
+            padding: 10px 10px;
+            background-color: #8f7a66;
+            font-family: Arial;
+            color: white;
+            border-radius: 10px;
+        }
+        header #ng:hover{
+            background-color: #e39851;
+        }
+        #map{
+            width: 450px;
+            height: 450px;
+            position: relative;
+            background-color: #BBA695;
+            border-radius: 5px;
+            margin: 50px auto;
+        }
+        .box{
+            width: 100px;
+            height: 100px;
+            background-color: #CBC3B6;
+            position: absolute;
+            text-align: center;
+            line-height: 100px;
+            font-family: Arial;
+            font-size: 32px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <header><!-- 语义标签 -->
+        <h1>2048</h1>
+        <scan id="score">分数:0</scan>
+        <time id="timing">计时:00</time>
+<!--         <ul>
+           <li id="hour"></li>
+           <li id="second"></li>
+        </ul>     -->   
+        <a href="javascript:game.update()" id="ng">New Game</a>
+    </header>
+</body>
+<script type="text/javascript">
+window.onload = function(){
+    game.init();
+    window.onkeydown = function(ev){
+        var ev = ev||window.event;
+        game.key(ev);
+    }
+}
+var base={
+    get:function(id){
+        return document.getElementById(id);
+    },
+    create:function(name){
+        return document.createElement(name);
+    },
+    cdiv:function(id,classname){
+        var div = this.create('div');
+        if(id!=null){
+            div.id = id;
+        }
+        if(classname!=null){
+            div.className = classname;
+        }
+        return div;
+    },
+    appch:function(id,name){
+        this.get(id).appendChild(name);
+    },
+    removeall:function(id){for(var i=this.get(id).children.length-1;i>-1;i--){this.get(id).removeChild(this.get(id).children[i]);}},    
+}
+var game={
+    row:4,
+    column:4,
+    width:100,
+    height:100,
+    board:[],
+    timer:null,
+    t:0,//计时
+    open:true,
+    score:0,
+    drawMap:function(){
+        var map = base.cdiv('map',null);
+        document.body.appendChild(map);
+
+    },
+    drawBox:function(){
+        for(var i=0;i<this.column;i++){
+            this.board[i] = [];//border[i] = new Array();
+            for (var j = 0; j < this.row; j++) {
+                this.board[i][j] = 0;
+                var box = base.cdiv(null,'box');
+                box.setAttribute('id',i*this.column+j);
+                box.setAttribute('style','left:'+(j*this.width+10*(j+1))+'px;top:'+(i*this.height+10*(i+1))+'px;');
+                // if(this.board[i][j]>4){
+                //     box.style.color='red';
+                // }else {
+                //     box.style.color='blue';
+                // }
+                base.appch('map',box);
+            }
+        }
+    },
+    drawNum:function(n){
+        for(var i=0;i<n;i++){
+            var x = parseInt(Math.floor(Math.random()*4));
+            var y = parseInt(Math.floor(Math.random()*4));
+
+            if(support.space(game.board)){
+                while(true){
+                    if(this.board[x][y]==0){
+                        break;
+                    }
+                    var x = parseInt(Math.floor(Math.random()*4));
+                    var y = parseInt(Math.floor(Math.random()*4));            
+                }                
+            }
+            var number = Math.random()<0.5?2:4;
+            this.board[x][y] = number;
+            // document.title = x*this.column+y; 
+            // base.get(x*this.column+y).setAttribute('background-color','yellow');
+            this.showBox(x,y,number); 
+        }     
+    },
+    showBox(x,y,number){
+        var boxs = base.get(x*this.column+y);
+        boxs.setAttribute('style','left:'+(y*this.width+10*(y+1))+'px;top:'+(x*this.height+10*(x+1))+'px;');
+        boxs.style.background = this.boxColor(number);
+        if(number==0){
+            boxs.innerHTML = '';
+        }else{
+            boxs.innerHTML = number;
+        }
+        
+    },
+    boxColor:function(n){
+        switch(n){
+            case 0:return '#CBC3B6' ;break;
+            case 2:return '#EEE5DE' ;break;
+            case 4:return '#EDE2C2';break;
+            case 8:return '#F0B478';break;
+            case 16:return '#F59666';break;
+            case 32:return '#F67D62';break;
+            case 64:return '#F75F38';break;
+            case 128:return '#EECE67';break;
+            case 256:return '#F1D341';break;
+            case 512:return '#EDC64F';break;
+            case 1024:return '#EFC53F';break;
+            case 2048:return '#09c';break;
+            case 4096:return '#93c';break;
+        }
+    },
+    key:function(ev){
+        if(this.open){
+            this.timing();
+            this.open = false;
+        }
+        var n = ev.keyCode;
+        switch(n){
+            case 38:
+                if(support.move(38,game.board)){//判断是否可以移动
+                    this.drawNum(1);//随机产生一个数字.2/4
+                    support.gameover();//判断是否结束游戏
+                }    
+            break;
+            case 39:
+                if(support.move(39,game.board)){
+                    this.drawNum(1);
+                    support.gameover();
+                }    
+            break;
+            case 40:
+                if(support.move(40,game.board)){
+                    this.drawNum(1);
+                    support.gameover();
+                }    
+            break;
+            case 37:
+                if(support.move(37,game.board)){
+                    this.drawNum(1);
+                    support.gameover();
+                }    
+            break;                                    
+        }
+    },
+    update:function(){
+        this.endtime();
+        this.t=0;
+        this.open = true;
+        base.get('timing').innerHTML = '计时:'+this.t;
+        this.score = 0;
+        base.get('score').innerHTML = '分数:'+this.score;
+        base.removeall('map');
+        this.drawBox();
+        this.drawNum(2);
+    },
+    timing:function(){
+        base.get('timing').innerHTML = '计时:'+this.t;
+        this.t++;
+        this.timer=setTimeout('game.timing()',1000);
+    },
+    endtime:function(){
+        clearTimeout(this.timer);
+    },
+    init:function(){
+        this.drawMap();
+        this.drawBox();
+        this.drawNum(2);
+    }
+}
+var support={
+    move:function(n,board){
+        switch(n){
+            case 38:
+                if(!this.judge(38,board)){
+                    return false;
+                }
+                //movedup
+                for(var j=0;j<game.row;j++){
+                    for(var i=1;i<game.column;i++){
+                        if(board[i][j]!=0){
+                            for(var k=0;k<i;k++){
+                                if(board[k][j]==0&&this.betweenBar(board,i,j,k,n)){
+                                    board[k][j] = board[i][j];
+                                    board[i][j] = 0;
+                                    this.show(i,j,k,n,game.board);
+                                }else if(board[k][j]!=0&&board[k][j]==board[i][j]&&this.betweenBar(board,i,j,k,n)){
+                                    board[k][j] += board[i][j];
+                                    board[i][j] = 0;
+                                    game.score += board[k][j];
+                                    base.get('score').innerHTML = '分数:'+game.score; 
+                                    this.show(i,j,k,n,game.board);
+                                }
+                            }
+                        }
+                    }
+                }
+                return true;                                    
+            break;
+            case 39:
+                if(!this.judge(39,board)){
+                    return false;
+                }
+                //moveright
+                for(var i=0;i<game.column;i++){
+                    for(var j=game.row-2;j>-1;j--){
+                        if(board[i][j]!=0){
+                            for(var k=game.column-1;k>j;k--){
+                                // console.log(k);
+                                //相邻位置 含空 
+                                if(board[i][k]==0&&this.betweenBar(board,i,j,k,n)){
+                                    board[i][k] = board[i][j];
+                                    board[i][j] = 0
+                                    this.show(i,j,k,n,game.board);
+                                    // continue;
+
+                                }else if(board[i][k]!=0&&board[i][j]==board[i][k]&&this.betweenBar(board,i,j,k,n)){//相邻位置 不空 但相等
+                                    board[i][k] +=board[i][j];
+                                    board[i][j] = 0;
+                                    game.score += board[i][k];
+                                    base.get('score').innerHTML = '分数:'+game.score;                                     
+                                    this.show(i,j,k,n,game.board);
+                                    // continue;
+                                }
+                                
+                            }
+                        }
+                    }
+                }
+            return true;                                        
+            break;
+            case 40:
+                if(!this.judge(40,board)){
+                    return false;
+                }
+                //movedown
+                for(var j=0;j<game.row;j++){
+                    for(var i=game.column-2;i>-1;i--){
+                        if(board[i][j]!=0){
+                            for(var k=game.row-1;k>i;k--){
+                                if(board[k][j]==0&&this.betweenBar(board,i,j,k,n)){
+                                    board[k][j] = board[i][j];
+                                    board[i][j] = 0;
+                                    this.show(i,j,k,n,game.board);
+                                }else if(board[k][j]!=0&&board[k][j]==board[i][j]&&this.betweenBar(board,i,j,k,n)){
+                                    board[k][j] += board[i][j];
+                                    board[i][j] = 0;
+                                    game.score += board[k][j];
+                                    base.get('score').innerHTML = '分数:'+game.score;                                     
+                                    this.show(i,j,k,n,game.board);
+                                }
+                            }
+                        }
+                    }
+                }
+                return true;
+            break;
+            case 37:
+                if(!this.judge(37,board)){
+                    return false;
+
+                }
+                //moveleft
+                for(var i=0;i<game.column;i++){
+                    for(var j=1;j<game.row;j++){
+                        if(board[i][j]!=0){
+                            for(var k=0;k<j;k++){
+                                //相邻位置 含空 
+                                if(board[i][k]==0&&this.betweenBar(board,i,j,k,n)){
+                                    board[i][k] = board[i][j];
+                                    board[i][j] = 0
+                                    this.show(i,j,k,n,game.board);
+                                    // continue;
+
+                                }else if(board[i][k]!=0&&board[i][j]==board[i][k]&&this.betweenBar(board,i,j,k,n)){//相邻位置 不空 但相等
+                                    board[i][k] +=board[i][j];
+                                    board[i][j] = 0;
+                                    game.score += board[i][k];
+                                    base.get('score').innerHTML = '分数:'+game.score;                                     
+                                    this.show(i,j,k,n,game.board);
+                                    // continue;
+                                }
+                                
+                            }
+                        }
+                    }
+                }
+                return true;
+        }
+    },
+    judge:function(n,board){//能否移动 
+        switch(n){
+            case 38:
+                for(var j=0;j<game.row;j++){
+                    for(var i=1;i<game.column;i++){
+                        if(board[i][j]!=0){
+                            if(board[i-1][j]==0||board[i-1][j]==board[i][j]){
+                                return true;
+                            }
+                        }
+                    }
+                }
+                return false;
+            break;
+            case 39:
+                for(var i=0;i<game.column;i++){
+                    for(var j=0;j<game.row-1;j++){
+                        if(board[i][j]!=0){
+                            if(board[i][j+1]==0||board[i][j+1]==board[i][j]){
+                                return true;
+                            }
+                        }
+                    }
+                }
+                return false;
+            break;
+            case 40:
+                for(var j=0;j<game.row;j++){
+                    for(var i=0;i<game.column-1;i++){
+                        if(board[i][j]!=0){
+                            if(board[i+1][j]==0||board[i+1][j]==board[i][j]){
+                                return true;
+                            }
+                        }
+                    }
+                }
+                return false;
+            break;
+            case 37:
+                for(var i=0;i<game.column;i++){
+                    for(var j=1;j<game.row;j++){
+                        if(board[i][j]!=0){
+                            if(board[i][j-1]==0||board[i][j-1]==board[i][j]){
+                                return true;
+                            }
+                        }
+                    }
+                    
+                }
+                return false;
+            break;                                    
+        }        
+    },
+    show:function(i,j,k,n,board){
+        switch(n){
+            case 38:
+                game.showBox(k,j,board[k][j]);
+                game.showBox(i,j,board[i][j]); 
+            break;
+            case 39:
+                game.showBox(i,k,board[i][k]);
+                game.showBox(i,j,board[i][j]);            
+            break;
+            case 40:
+                game.showBox(k,j,board[k][j]);
+                game.showBox(i,j,board[i][j]);            
+            break;
+            case 37:
+                game.showBox(i,k,board[i][k]);
+                game.showBox(i,j,board[i][j]);            
+            break;
+        }
+
+    },
+    betweenBar:function(board,i,j,k,n){
+        switch(n){
+            case 38:
+                for(var m=k+1;m<i;m++){
+                    if(board[m][j]!=0){
+                        return false;
+                    }
+                }
+                return true;
+            break;
+            case 39:
+                for(var m=k-1;m>j;m--){
+                    if(board[i][m]!=0){
+                        return false;
+                    }
+                }
+                return true;
+            break;
+            case 40:
+                for(var m=k-1;m>i;m--){
+                    if(board[m][j]!=0){
+                        return false;
+                    }
+                }
+                return true;
+            break;
+
+            case 37:
+                for(var m=k+1;m<j;m++){
+                    if(board[i][m]!=0){
+                        return false;
+                    }
+                }
+                return true;
+            break;
+        }
+    },
+    space:function(board){//board数组是否含有0
+        for(var i=0;i<game.column;i++){
+            for(var j=0;j<game.row;j++){
+                if(board[i][j]==0){
+                    return true;
+                }
+            }
+        }
+        return false;
+    },
+    gameover:function(){
+       if(!this.judge(38,game.board)&&!this.judge(31,game.board)&&!this.judge(40,game.board)&&!this.judge(37,game.board)&&!this.space(game.board)){
+            game.endtime(game.timer);
+            alert('再来一次');
+            game.update();
+
+       }
+    }  
+}
+</script>
+</html>
